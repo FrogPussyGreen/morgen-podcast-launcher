@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Morgen-Podcast</title>
+<style>
+  *{box-sizing:border-box} body{margin:0;min-height:100vh;background:#111827;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:flex;align-items:center;justify-content:center;padding:20px}
+  main{width:min(430px,100%);text-align:center;background:#1f2937;border-radius:28px;padding:30px 22px;box-shadow:0 20px 60px #0008}
+  .mic{font-size:72px;margin:5px 0 12px}.title{font-size:28px;font-weight:800}.sub{color:#cbd5e1;margin:8px 0 25px}
+  button{width:100%;border:0;border-radius:18px;padding:18px;font-size:20px;font-weight:800;background:#fff;color:#111827;cursor:pointer}
+  button:disabled{opacity:.5}.status{min-height:48px;margin-top:18px;color:#cbd5e1;font-size:15px;line-height:1.4}
+  details{text-align:left;margin-top:25px;color:#cbd5e1} summary{cursor:pointer} input{width:100%;margin-top:10px;padding:13px;border-radius:12px;border:1px solid #475569;background:#0f172a;color:#fff}
+  .save{margin-top:10px;padding:12px;font-size:15px;background:#334155;color:#fff}.hint{font-size:12px;color:#94a3b8;margin-top:15px}
+</style>
+</head>
+<body>
+<main>
+  <div class="mic">🎙️</div>
+  <div class="title">Morgen-Podcast</div>
+  <div class="sub">Ein Knopfdruck – Podcast starten</div>
+  <button id="start">Podcast starten</button>
+  <div id="status" class="status"></div>
+
+  <details>
+    <summary>Einrichtung / GitHub-Token</summary>
+    <p>Beim ersten Mal Deinen Fine-grained GitHub-Token eintragen. Er wird nur lokal in diesem Browser gespeichert und nie an einen anderen Server gesendet.</p>
+    <input id="token" type="password" autocomplete="off" placeholder="ghp_… / github_pat_…">
+    <button class="save" id="save">Token lokal speichern</button>
+    <div class="hint">Für das Token nur Zugriff auf Dein Podcast-Repository und Actions: Read and write verwenden. Bei Verlust in GitHub sofort widerrufen.</div>
+  </details>
+</main>
+<script>
+const owner="FrogPussyGreen";
+const repo="Nachrichte-Podcast";
+const workflow="morgen-podcast.yml";
+const ref="main";
+const tokenEl=document.getElementById("token");
+const statusEl=document.getElementById("status");
+const start=document.getElementById("start");
+tokenEl.value=localStorage.getItem("github_pat")||"";
+
+document.getElementById("save").onclick=()=>{
+  const t=tokenEl.value.trim();
+  if(!t){statusEl.textContent="Bitte Token eingeben.";return}
+  localStorage.setItem("github_pat",t);
+  tokenEl.value="";
+  statusEl.textContent="Token lokal gespeichert.";
+};
+
+start.onclick=async()=>{
+  const token=localStorage.getItem("github_pat");
+  if(!token){statusEl.textContent="Bitte zuerst unter „Einrichtung / GitHub-Token“ den Token speichern.";return}
+  start.disabled=true; statusEl.textContent="Podcast wird gestartet …";
+  try{
+    const url=`https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/dispatches`;
+    const r=await fetch(url,{
+      method:"POST",
+      headers:{
+        "Accept":"application/vnd.github+json",
+        "Authorization":"Bearer "+token,
+        "X-GitHub-Api-Version":"2026-03-10",
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({ref})
+    });
+    if(r.status===204){
+      statusEl.textContent="✅ Gestartet. Die MP3 kommt nach der Verarbeitung über Telegram.";
+    }else{
+      const txt=await r.text();
+      statusEl.textContent=`❌ GitHub meldet HTTP ${r.status}. Prüfe Token und Actions-Berechtigung.`;
+      console.error(txt);
+    }
+  }catch(e){
+    statusEl.textContent="❌ Verbindung zu GitHub fehlgeschlagen.";
+    console.error(e);
+  }finally{start.disabled=false}
+};
+</script>
+</body>
+</html>
